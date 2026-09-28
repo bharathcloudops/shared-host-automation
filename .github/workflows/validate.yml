@@ -2,7 +2,7 @@
 # SHARED HOST AUTOMATION VALIDATION
 #==============================================================================
 
-name: Validate host automation
+name: 01 - Validate host automation
 
 #==============================================================================
 # WORKFLOW TRIGGERS
@@ -32,20 +32,20 @@ concurrency:
 
 jobs:
   validate:
-    uses: bharathadigopula/github-pipeline-templates/.github/workflows/shell-validate.yml@v0.7.0
+    uses: bharathcloudops/github-pipeline-templates/.github/workflows/shell-validate.yml@v0.9.4
     with:
       search_path: scripts
     permissions:
       contents: read
 
   validate-cloudflared-bootstrap:
-    name: Validate cloudflared bootstrap
+    name: 02 - Validate cloudflared bootstrap
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Checkout repository
+      - name: 01 - Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Validate OCI payload and secret handling
+      - name: 02 - Validate OCI payload and secret handling
         run: bash scripts/validate.sh
