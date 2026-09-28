@@ -32,6 +32,7 @@ concurrency:
 
 jobs:
   validate:
+    name: 01 - Validate Shell Scripts
     uses: bharathcloudops/github-pipeline-templates/.github/workflows/shell-validate.yml@v0.9.4
     with:
       search_path: scripts
