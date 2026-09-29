@@ -61,6 +61,12 @@ trap 'rm -f "$temporary_file"' EXIT
 printf 'network:\n  version: 2\n  ethernets:\n    %s:\n      addresses:\n        - %s/32\n' \
   "$interface_name" "$secondary_private_ip" > "$temporary_file"
 chmod 600 "$temporary_file"
+if [[ -f "$netplan_file" ]] && cmp --silent "$temporary_file" "$netplan_file" && \
+  ip -4 address show dev "$interface_name" | grep -Fq "inet ${secondary_private_ip}/32"; then
+  printf 'secondary_ip=%s\ninterface=%s\nconfiguration=unchanged\nconfiguration=ready\n' "$secondary_private_ip" "$interface_name"
+  exit 0
+fi
+
 install -o root -g root -m 600 "$temporary_file" "$netplan_file"
 
 if ! netplan generate; then

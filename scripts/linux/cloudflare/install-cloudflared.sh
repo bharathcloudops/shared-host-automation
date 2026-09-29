@@ -47,6 +47,20 @@ if ! sudo -n true; then
   exit 30
 fi
 
+deployment_fingerprint=$(printf '%s\0' "$cloudflared_version" "$metrics_address" "$metrics_source_address" "$tunnel_token" | sha256sum | awk '{print $1}')
+fingerprint_file=/var/lib/bharathcloudops/cloudflared.sha256
+installed_version=$(cloudflared --version 2>/dev/null | awk '{ print $3 }' || true)
+if [[ "$installed_version" == "$cloudflared_version" ]] && \
+  [[ "$(sudo -n cat "$fingerprint_file" 2>/dev/null || true)" == "$deployment_fingerprint" ]] && \
+  sudo -n systemctl is-active --quiet cloudflared.service && \
+  curl --fail --silent --show-error "http://${metrics_address}:8880/metrics" >/dev/null && \
+  sudo -n iptables -C CLOUDFLARED_METRICS -p tcp -s "${metrics_source_address}/32" -d "${metrics_address}/32" --dport 8880 -j ACCEPT; then
+  printf 'cloudflare_tunnel=unchanged\n'
+  printf 'cloudflared_metrics=ready\n'
+  printf 'cloudflare_tunnel=ready\n'
+  exit 0
+fi
+
 #==============================================================================
 # PRIVATE METRICS FIREWALL FILES
 #==============================================================================
@@ -204,5 +218,8 @@ else
   printf 'cloudflared_nft_rejects=unavailable\n'
 fi
 printf 'cloudflared_version=%s\n' "$installed_version"
+sudo -n install -d -o root -g root -m 700 /var/lib/bharathcloudops
+printf '%s\n' "$deployment_fingerprint" | sudo -n tee "$fingerprint_file" >/dev/null
+sudo -n chmod 0600 "$fingerprint_file"
 printf 'cloudflared_metrics=ready\n'
 printf 'cloudflare_tunnel=ready\n'

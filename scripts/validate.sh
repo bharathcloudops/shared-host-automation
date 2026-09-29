@@ -52,8 +52,17 @@ fi
 #==============================================================================
 
 if ! grep -Fq -- '--token-file /etc/cloudflared/tunnel.token' "$installer_script" || \
-  grep -Fq -- "--token \${TUNNEL_TOKEN}" "$installer_script"; then
+  grep -Fq -- "--token \${TUNNEL_TOKEN}" "$installer_script" || \
+  ! grep -Fq 'cloudflared.sha256' "$installer_script" || \
+  ! grep -Fq "printf 'cloudflare_tunnel=unchanged" "$installer_script"; then
   printf 'Cloudflared must use its root-only token file.\n' >&2
+  exit 1
+fi
+
+if ! grep -Fq 'cmp --silent "$temporary_file" "$netplan_file"' "$repository_root/scripts/linux/network/configure-secondary-ip.sh" || \
+  ! grep -Fq 'configuration=unchanged' "$repository_root/scripts/linux/network/configure-secondary-ip.sh" || \
+  ! grep -Fq 'oracle_cloud_agent=unchanged' "$repository_root/scripts/linux/oci/bootstrap-oracle-cloud-agent.sh"; then
+  printf 'Host networking and OCI agent configuration must skip unchanged healthy state.\n' >&2
   exit 1
 fi
 
