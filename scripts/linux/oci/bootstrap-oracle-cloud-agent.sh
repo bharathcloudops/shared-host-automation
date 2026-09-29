@@ -36,7 +36,20 @@ fi
 #==============================================================================
 
 if snap list "$agent_snap" >/dev/null 2>&1; then
-  sudo snap refresh "$agent_snap" --channel=latest/stable
+  installed_agent_version=$(snap list "$agent_snap" | awk 'NR == 2 { print $2 }')
+  normalized_agent_version=$(awk -F- '{ print $1 }' <<< "$installed_agent_version")
+  if dpkg --compare-versions "$normalized_agent_version" ge "$minimum_agent_version" && \
+    id ocarun >/dev/null 2>&1 && \
+    [[ "$(sudo cat "$sudoers_file" 2>/dev/null || true)" == 'ocarun ALL=(ALL) NOPASSWD: ALL' ]]; then
+    printf 'oracle_cloud_agent=unchanged\n'
+    printf 'oracle_cloud_agent_version=%s\n' "$installed_agent_version"
+    printf 'oracle_cloud_agent=ready\n'
+    printf 'run_command_sudo=ready\n'
+    exit 0
+  fi
+  if ! dpkg --compare-versions "$normalized_agent_version" ge "$minimum_agent_version"; then
+    sudo snap refresh "$agent_snap" --channel=latest/stable
+  fi
 else
   sudo snap install "$agent_snap" --classic --channel=latest/stable
 fi
