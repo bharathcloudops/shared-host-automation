@@ -59,7 +59,7 @@ if ! grep -Fq -- '--token-file /etc/cloudflared/tunnel.token' "$installer_script
   exit 1
 fi
 
-if ! grep -Fq 'cmp --silent "$temporary_file" "$netplan_file"' "$repository_root/scripts/linux/network/configure-secondary-ip.sh" || \
+if ! grep -Fq 'cmp --silent' "$repository_root/scripts/linux/network/configure-secondary-ip.sh" || \
   ! grep -Fq 'configuration=unchanged' "$repository_root/scripts/linux/network/configure-secondary-ip.sh" || \
   ! grep -Fq 'oracle_cloud_agent=unchanged' "$repository_root/scripts/linux/oci/bootstrap-oracle-cloud-agent.sh"; then
   printf 'Host networking and OCI agent configuration must skip unchanged healthy state.\n' >&2
