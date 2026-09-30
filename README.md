@@ -23,7 +23,50 @@ AVAILABLE SCRIPTS
 | `scripts/linux/network/preflight.sh` | Validate host networking prerequisites |
 | `scripts/linux/network/configure-secondary-ip.sh` | Configure a secondary private IP on a host |
 | `scripts/linux/network/verify-secondary-ip.sh` | Verify secondary private IP configuration |
+| `scripts/linux/monitoring/bootstrap-node-monitoring.sh` | Download an immutable release within the OCI Run Command payload limit |
+| `scripts/linux/monitoring/manage-node-monitoring.sh` | Deploy, verify, inspect, or report private host and storage telemetry |
 | `scripts/linux/oci/bootstrap-oracle-cloud-agent.sh` | Install and validate required Oracle Cloud Agent plugins |
+
+<!--
+==============================================================================
+PRIVATE HOST MONITORING
+==============================================================================
+-->
+
+## Private Host Monitoring
+
+Release `v0.3.6` installs Prometheus Node Exporter `v1.12.1` as a native systemd service on AMD64 or ARM64 Ubuntu. The exporter listens on the host's declared private address at TCP `9100`; a persistent iptables chain accepts only the monitoring source address and drops every other connection to that listener.
+
+The compact bootstrap accepts the action, immutable repository/ref, metrics address, monitoring source address, host name, and a JSON array of managed storage paths. Supported actions are:
+
+| Action | Mutation | Result |
+|---|---|---|
+| `validate` | No | Validates arguments and the release contract |
+| `deploy` | Yes | Installs the pinned binary, firewall, collector, timer, and service |
+| `verify` | No | Verifies the service, timer, metrics endpoint, and firewall rule |
+| `status` | No | Reports exporter, timer, and failed-systemd-unit state |
+| `report` | No | Reports filesystems, RAM, load, managed paths, twenty largest files per path, and Docker storage |
+
+Node Exporter supplies CPU, RAM, swap, load, filesystem, inode, disk I/O, network, uptime, and systemd metrics. `node-storage-metrics.timer` runs every fifteen minutes and adds these low-cardinality metrics for each declared path:
+
+| Metric | Meaning |
+|---|---|
+| `bharath_managed_path_available` | Whether the configured path exists |
+| `bharath_managed_path_bytes` | Bytes stored below the configured path on its filesystem |
+| `bharath_managed_path_files` | Number of files below the configured path |
+
+Filenames are deliberately excluded from Prometheus labels. The `report` action records detailed filenames in the access-controlled OCI Run Command artifact retained by GitHub Actions for seven days.
+
+```shell
+bash scripts/linux/monitoring/bootstrap-node-monitoring.sh \
+	deploy \
+	bharathcloudops/shared-host-automation \
+	v0.3.6 \
+	10.10.10.125 \
+	10.10.10.34 \
+	web-01 \
+	'["/etc/cloudflared","/var/log"]'
+```
 
 <!--
 ==============================================================================
@@ -98,14 +141,14 @@ REPOSITORY VALIDATION
 
 ## Validation
 
-Jenkins reads `.jenkins/pipelines/validate.groovy` with `jenkins-pipeline-templates v1.4.0`, publishes the required `continuous-integration/jenkins` check, and validates on the `platform` agent with ANSI console output without mutating hosts. The retained GitHub Actions validation workflow runs on pull requests, `main`, or manual dispatch.
+GitHub Actions validates shell syntax, OCI payload sizes, immutable download checksums, secret handling, firewall rules, and both management contracts without mutating hosts.
 
 ```shell
 SEARCH_PATH=scripts bash ../github-pipeline-templates/scripts/validation/validate-shell.sh
 bash scripts/validate.sh
 ```
 
-The rendered bootstrap and all five arguments must remain within OCI Run Command's 4,096-byte inline command limit. The repository validator uses the maximum supported 255-character secret and also asserts that cloudflared uses only its root-owned token file and a source-restricted UFW rule.
+Each rendered bootstrap and its arguments must remain within OCI Run Command's 4,096-byte inline command limit. The repository validator uses the maximum supported 255-character Cloudflare secret and asserts that both metrics listeners use source-restricted firewall rules.
 
 <!--
 ==============================================================================
