@@ -54,6 +54,7 @@ fi
 bash "$node_manager_script" validate 10.10.10.125 10.10.10.3 web-01 '["/var/log","/etc/cloudflared"]' >/dev/null
 if ! grep -Fq -- '--collector.systemd' "$node_manager_script" || \
   ! grep -Fq -- '--collector.textfile.directory=' "$node_manager_script" || \
+  ! grep -Fq -- '--retry-connrefused' "$node_manager_script" || \
   ! grep -Fq 'systemctl start --no-block node-storage-metrics.service' "$node_manager_script" || \
   ! grep -Fq 'iptables -A NODE_EXPORTER_METRICS' "$node_manager_script" || \
   ! grep -Fq 'bharath_managed_path_bytes' "$node_manager_script" || \
