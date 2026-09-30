@@ -64,7 +64,8 @@ fi
 verify_monitoring() {
   sudo -n systemctl is-active --quiet node-exporter.service
   sudo -n systemctl is-active --quiet node-storage-metrics.timer
-  curl --fail --silent --show-error "http://${metrics_address}:9100/metrics" |
+  curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --retry-max-time 30 \
+    "http://${metrics_address}:9100/metrics" |
     grep -F 'node_cpu_seconds_total' >/dev/null
   sudo -n iptables -C NODE_EXPORTER_METRICS -p tcp -s "${metrics_source_address}/32" \
     -d "${metrics_address}/32" --dport 9100 -j ACCEPT
