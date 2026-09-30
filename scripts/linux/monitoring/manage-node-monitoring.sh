@@ -300,7 +300,7 @@ sudo -n install -o root -g root -m 0644 "$firewall_service" /etc/systemd/system/
 sudo -n systemctl daemon-reload
 sudo -n systemctl enable --now node-exporter-metrics-firewall.service
 sudo -n systemctl enable --now node-storage-metrics.timer
-sudo -n systemctl start node-storage-metrics.service
+sudo -n systemctl start --no-block node-storage-metrics.service
 sudo -n systemctl enable node-exporter.service
 sudo -n systemctl restart node-exporter.service
 

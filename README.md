@@ -35,7 +35,7 @@ PRIVATE HOST MONITORING
 
 ## Private Host Monitoring
 
-Release `v0.3.6` installs Prometheus Node Exporter `v1.12.1` as a native systemd service on AMD64 or ARM64 Ubuntu. The exporter listens on the host's declared private address at TCP `9100`; a persistent iptables chain accepts only the monitoring source address and drops every other connection to that listener.
+Release `v0.3.7` installs Prometheus Node Exporter `v1.12.1` as a native systemd service on AMD64 or ARM64 Ubuntu. The exporter listens on the host's declared private address at TCP `9100`; a persistent iptables chain accepts only the monitoring source address and drops every other connection to that listener.
 
 The compact bootstrap accepts the action, immutable repository/ref, metrics address, monitoring source address, host name, and a JSON array of managed storage paths. Supported actions are:
 
@@ -47,7 +47,7 @@ The compact bootstrap accepts the action, immutable repository/ref, metrics addr
 | `status` | No | Reports exporter, timer, and failed-systemd-unit state |
 | `report` | No | Reports filesystems, RAM, load, managed paths, twenty largest files per path, and Docker storage |
 
-Node Exporter supplies CPU, RAM, swap, load, filesystem, inode, disk I/O, network, uptime, and systemd metrics. `node-storage-metrics.timer` runs every fifteen minutes and adds these low-cardinality metrics for each declared path:
+Node Exporter supplies CPU, RAM, swap, load, filesystem, inode, disk I/O, network, uptime, and systemd metrics. Deployment starts the initial managed-path scan asynchronously so large filesystems cannot exhaust OCI Run Command output retrieval; `node-storage-metrics.timer` then runs every fifteen minutes and adds these low-cardinality metrics for each declared path:
 
 | Metric | Meaning |
 |---|---|
@@ -61,7 +61,7 @@ Filenames are deliberately excluded from Prometheus labels. The `report` action 
 bash scripts/linux/monitoring/bootstrap-node-monitoring.sh \
 	deploy \
 	bharathcloudops/shared-host-automation \
-	v0.3.6 \
+	v0.3.7 \
 	10.10.10.125 \
 	10.10.10.34 \
 	web-01 \
