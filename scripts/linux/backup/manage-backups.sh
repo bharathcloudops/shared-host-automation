@@ -242,11 +242,11 @@ cleanup_backup() {
 snapshot_backstage() {
   local dump="$stage_directory/backstage.sql"
 
-  if ! backstage_compose exec -T postgres pg_dump --username backstage backstage > "$dump"; then
-    printf 'backup_failed=backstage stage=pg_dump\n' >&2
+  if ! backstage_compose exec -T postgres pg_dumpall --username backstage > "$dump"; then
+    printf 'backup_failed=backstage stage=pg_dumpall\n' >&2
     return 1
   fi
-  if [[ ! -s "$dump" ]] || ! tail -n 10 "$dump" | grep -Fq 'PostgreSQL database dump complete'; then
+  if [[ ! -s "$dump" ]] || ! tail -n 10 "$dump" | grep -Fq 'PostgreSQL database cluster dump complete'; then
     printf 'backup_failed=backstage stage=incomplete_dump\n' >&2
     return 1
   fi
@@ -427,7 +427,7 @@ restore_test() {
     fi
     case "$name" in
       backstage)
-        if [[ ! -s "$target/backstage.sql" ]] || ! grep -Fq 'PostgreSQL database dump' "$target/backstage.sql"; then
+        if [[ ! -s "$target/backstage.sql" ]] || ! grep -Fq 'PostgreSQL database cluster dump' "$target/backstage.sql"; then
           rm -rf "$target"
           fail 'The restored Backstage dump is invalid.' 60
         fi
