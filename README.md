@@ -44,7 +44,7 @@ ENCRYPTED HOST BACKUPS
 | Folder in the backup bucket | Owner | Content |
 |---|---|---|
 | `wordpress/` | Helm CronJob in `platform-helm-charts` | Database dump, uploads, extensions, and webroot for every site |
-| `backstage/` | This script | Verified PostgreSQL dump of the Backstage database |
+| `backstage/` | This script | Verified `pg_dumpall` dump of every Backstage database, including the per-plugin `backstage_plugin_*` databases that hold the real data |
 | `monitoring/` | This script | Grafana and Alertmanager state, excluding Prometheus time series |
 
 Each folder is an independent restic repository with its own password.
@@ -84,7 +84,7 @@ The monitoring backup stops Grafana for the few seconds needed to copy its SQLit
 
 ### Safety
 
-- The Backstage dump is written to a private temporary folder and accepted only when its final ten lines contain the PostgreSQL completion line, so a truncated dump is never stored. PostgreSQL 17 appends restrict lines after the completion line, which the ten-line window allows for.
+- The Backstage dump is written to a private temporary folder and accepted only when its final ten lines contain the PostgreSQL cluster completion line, so a truncated dump is never stored. PostgreSQL 17 appends restrict lines after the completion line, which the ten-line window allows for.
 - A failed source prints `backup_failed=<source> stage=<stage>` and records `bharath_backup_last_status 0`, so the failing stage is visible in the pipeline output.
 - The restic download is checked against a pinned SHA-256 value before installation.
 - Passwords and keys are never placed in environment files, units, or logs.

@@ -96,7 +96,8 @@ if bash "$backup_manager_script" validate k3s '["unknown"]' >/dev/null 2>&1 || \
   ! grep -Fq 'restic_sha256_arm64=' "$backup_manager_script" || \
   ! grep -Fq 'sha256sum' "$backup_manager_script" || \
   ! grep -Fq 'tail -n 10' "$backup_manager_script" || \
-  ! grep -Fq 'PostgreSQL database dump complete' "$backup_manager_script" || \
+  ! grep -Fq 'PostgreSQL database cluster dump complete' "$backup_manager_script" || \
+  ! grep -Fq 'pg_dumpall --username backstage' "$backup_manager_script" || \
   ! grep -Fq 'backup_failed=' "$backup_manager_script" || \
   ! grep -Fq 'bharath_backup_last_success_timestamp_seconds' "$backup_manager_script" || \
   ! grep -Fq 'backup_restore_test=ready' "$backup_manager_script" || \
