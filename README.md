@@ -25,7 +25,68 @@ AVAILABLE SCRIPTS
 | `scripts/linux/network/verify-secondary-ip.sh` | Verify secondary private IP configuration |
 | `scripts/linux/monitoring/bootstrap-node-monitoring.sh` | Download an immutable release within the OCI Run Command payload limit |
 | `scripts/linux/monitoring/manage-node-monitoring.sh` | Deploy, verify, inspect, or report private host and storage telemetry |
+| `scripts/linux/backup/bootstrap-backups.sh` | Download an immutable release within the OCI Run Command payload limit |
+| `scripts/linux/backup/manage-backups.sh` | Deploy, run, verify, check, restore-test, or report encrypted restic backups |
 | `scripts/linux/oci/bootstrap-oracle-cloud-agent.sh` | Install and validate required Oracle Cloud Agent plugins |
+
+<!--
+==============================================================================
+ENCRYPTED HOST BACKUPS
+==============================================================================
+-->
+
+## Encrypted Host Backups
+
+`manage-backups.sh` backs up host-resident application state with `restic` into the Terraform-managed OCI Object Storage backup bucket. Restic encrypts and deduplicates on the host, so the bucket only holds encrypted, incremental data and stays inside the Always Free allowance.
+
+### Repository layout
+
+| Folder in the backup bucket | Owner | Content |
+|---|---|---|
+| `wordpress/` | Helm CronJob in `platform-helm-charts` | Database dump, uploads, extensions, and webroot for every site |
+| `backstage/` | This script | Verified PostgreSQL dump of the Backstage database |
+| `monitoring/` | This script | Grafana and Alertmanager state, excluding Prometheus time series |
+
+Each folder is an independent restic repository with its own password.
+
+### Naming
+
+| Item | Convention |
+|---|---|
+| Vault secret | `bharathcloudops-<env>-<region>-host-backup` |
+| Systemd units | `bharath-backup-<source>.service` and `.timer`, plus `bharath-backup-check.service` and `.timer` |
+| Installed command | `/usr/local/sbin/bharath-backup` |
+| Credential files | Root-only files under `/etc/bharathcloudops/backup/` |
+| Snapshot tags | `source=<source>`, `env=prd`, `host=<host>` |
+| Metrics | `bharath_backup_*{source="<source>"}` in `/var/lib/node-exporter/textfile/bharath_backup_<source>.prom` |
+
+### Actions
+
+| Action | Behaviour |
+|---|---|
+| `validate` | Check inputs without touching the host |
+| `deploy` | Install the pinned restic release, write credential files, install timers, run every backup once, and verify |
+| `backup` | Run every configured backup now |
+| `check` | Run a partial restic integrity check on every repository |
+| `verify` | Require a snapshot newer than 26 hours and an active timer for every source |
+| `restore-test` | Restore the latest snapshot of every source into a temporary folder and validate its content |
+| `status` | List the backup timers |
+
+### Schedule and retention
+
+| Source | Time | Retention |
+|---|---|---|
+| `backstage` | 02:35 plus up to 5 minutes | 7 daily, 4 weekly, 3 monthly |
+| `monitoring` | 02:50 plus up to 5 minutes | 7 daily, 4 weekly, 3 monthly |
+| Integrity check | Sunday 04:00 | Partial read of 5 percent of data |
+
+The monitoring backup stops Grafana for the few seconds needed to copy its SQLite database consistently and always restarts it, including on failure.
+
+### Safety
+
+- The Backstage dump is written to a private temporary folder and accepted only when it ends with the PostgreSQL completion line, so a truncated dump is never stored.
+- The restic download is checked against a pinned SHA-256 value before installation.
+- Passwords and keys are never placed in environment files, units, or logs.
 
 <!--
 ==============================================================================

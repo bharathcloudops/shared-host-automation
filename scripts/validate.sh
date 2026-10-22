@@ -19,12 +19,14 @@ bootstrap_script="$repository_root/scripts/linux/cloudflare/bootstrap-cloudflare
 installer_script="$repository_root/scripts/linux/cloudflare/install-cloudflared.sh"
 node_bootstrap_script="$repository_root/scripts/linux/monitoring/bootstrap-node-monitoring.sh"
 node_manager_script="$repository_root/scripts/linux/monitoring/manage-node-monitoring.sh"
+backup_bootstrap_script="$repository_root/scripts/linux/backup/bootstrap-backups.sh"
+backup_manager_script="$repository_root/scripts/linux/backup/manage-backups.sh"
 
 #==============================================================================
 # REQUIRED FILES
 #==============================================================================
 
-for required_file in "$bootstrap_script" "$installer_script" "$node_bootstrap_script" "$node_manager_script"; do
+for required_file in "$bootstrap_script" "$installer_script" "$node_bootstrap_script" "$node_manager_script" "$backup_bootstrap_script" "$backup_manager_script"; do
   if [[ ! -f "$required_file" ]]; then
     printf 'Missing required file: %s\n' "$required_file" >&2
     exit 1
@@ -60,6 +62,44 @@ if ! grep -Fq -- '--collector.systemd' "$node_manager_script" || \
   ! grep -Fq 'bharath_managed_path_bytes' "$node_manager_script" || \
   ! grep -Fq 'node_monitoring_report=ready' "$node_manager_script"; then
   printf 'Node monitoring must provide private host, storage, service, and report coverage.\n' >&2
+  exit 1
+fi
+
+#==============================================================================
+# HOST BACKUP CONTRACT VALIDATION
+#==============================================================================
+
+backup_arguments=$(jq -cn '[
+  "deploy",
+  "bharathcloudops/shared-host-automation",
+  "v0.3.9",
+  "k3s",
+  "[\"backstage\",\"monitoring\"]",
+  ({
+    RESTIC_REPOSITORY_BASE: ("s3:https://" + ("a" * 40) + ".compat.objectstorage.ap-hyderabad-1.oraclecloud.com/bharathcloudops-prd-hyd-backups"),
+    RESTIC_PASSWORD_BACKSTAGE: ("p" * 32),
+    RESTIC_PASSWORD_MONITORING: ("p" * 32),
+    AWS_ACCESS_KEY_ID: ("k" * 40),
+    AWS_SECRET_ACCESS_KEY: ("s" * 44),
+    AWS_DEFAULT_REGION: "ap-hyderabad-1"
+  } | tojson)
+]')
+backup_argument_line=$(jq -r '[.[] | @sh] | "set -- " + join(" ")' <<< "$backup_arguments")
+backup_rendered_size=$(printf '%s\n%s' "$backup_argument_line" "$(cat "$backup_bootstrap_script")" | wc -c | tr -d ' ')
+if (( backup_rendered_size > 4096 )); then
+  printf 'Rendered backup bootstrap exceeds the OCI 4096-byte inline limit.\n' >&2
+  exit 1
+fi
+
+bash "$backup_manager_script" validate k3s '["backstage","monitoring"]' >/dev/null
+if bash "$backup_manager_script" validate k3s '["unknown"]' >/dev/null 2>&1 || \
+  ! grep -Fq 'restic_sha256_arm64=' "$backup_manager_script" || \
+  ! grep -Fq 'sha256sum' "$backup_manager_script" || \
+  ! grep -Fq 'PostgreSQL database dump complete' "$backup_manager_script" || \
+  ! grep -Fq 'bharath_backup_last_success_timestamp_seconds' "$backup_manager_script" || \
+  ! grep -Fq 'backup_restore_test=ready' "$backup_manager_script" || \
+  grep -Fq 'RESTIC_PASSWORD=' "$backup_manager_script"; then
+  printf 'Host backups must verify downloads, dump integrity, metrics, restores, and keep passwords in root-only files.\n' >&2
   exit 1
 fi
 
