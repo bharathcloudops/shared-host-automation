@@ -242,23 +242,44 @@ cleanup_backup() {
 snapshot_backstage() {
   local dump="$stage_directory/backstage.sql"
 
-  backstage_compose exec -T postgres pg_dump --username backstage backstage > "$dump" || return 1
-  [[ -s "$dump" ]] && tail -n 3 "$dump" | grep -Fq 'PostgreSQL database dump complete' || return 1
-  snapshot_summary=$(restic_for backstage backup --json --stdin --stdin-filename backstage.sql \
-    --tag source=backstage --tag env=prd --tag "host=$host_name" < "$dump" | jq -c 'select(.message_type == "summary")') || return 1
+  if ! backstage_compose exec -T postgres pg_dump --username backstage backstage > "$dump"; then
+    printf 'backup_failed=backstage stage=pg_dump\n' >&2
+    return 1
+  fi
+  if [[ ! -s "$dump" ]] || ! tail -n 10 "$dump" | grep -Fq 'PostgreSQL database dump complete'; then
+    printf 'backup_failed=backstage stage=incomplete_dump\n' >&2
+    return 1
+  fi
+  if ! snapshot_summary=$(restic_for backstage backup --json --stdin --stdin-filename backstage.sql \
+    --tag source=backstage --tag env=prd --tag "host=$host_name" < "$dump" | jq -c 'select(.message_type == "summary")'); then
+    printf 'backup_failed=backstage stage=restic_backup\n' >&2
+    return 1
+  fi
 }
 
 snapshot_monitoring() {
   local grafana_path
   local alertmanager_path
 
-  grafana_path=$(docker volume inspect monitoring-stack_grafana-data --format '{{ .Mountpoint }}') || return 1
-  alertmanager_path=$(docker volume inspect monitoring-stack_alertmanager-data --format '{{ .Mountpoint }}') || return 1
-  monitoring_compose stop grafana >/dev/null || return 1
+  if ! grafana_path=$(docker volume inspect monitoring-stack_grafana-data --format '{{ .Mountpoint }}') || \
+    ! alertmanager_path=$(docker volume inspect monitoring-stack_alertmanager-data --format '{{ .Mountpoint }}'); then
+    printf 'backup_failed=monitoring stage=volume_lookup\n' >&2
+    return 1
+  fi
+  if ! monitoring_compose stop grafana >/dev/null; then
+    printf 'backup_failed=monitoring stage=grafana_stop\n' >&2
+    return 1
+  fi
   grafana_stopped=true
-  snapshot_summary=$(restic_for monitoring backup --json "$grafana_path" "$alertmanager_path" \
-    --tag source=monitoring --tag env=prd --tag "host=$host_name" | jq -c 'select(.message_type == "summary")') || return 1
-  monitoring_compose start grafana >/dev/null || return 1
+  if ! snapshot_summary=$(restic_for monitoring backup --json "$grafana_path" "$alertmanager_path" \
+    --tag source=monitoring --tag env=prd --tag "host=$host_name" | jq -c 'select(.message_type == "summary")'); then
+    printf 'backup_failed=monitoring stage=restic_backup\n' >&2
+    return 1
+  fi
+  if ! monitoring_compose start grafana >/dev/null; then
+    printf 'backup_failed=monitoring stage=grafana_start\n' >&2
+    return 1
+  fi
   grafana_stopped=false
 }
 
@@ -273,7 +294,9 @@ backup_source() {
   install -d -m 0700 "$cache_directory"
   stage_directory=$(mktemp -d /var/backups/.bharath-backup.XXXXXX)
   trap cleanup_backup EXIT
-  if initialise_repository "$name" && "snapshot_$name" && \
+  if ! initialise_repository "$name"; then
+    printf 'backup_failed=%s stage=repository_init\n' "$name" >&2
+  elif "snapshot_$name" && \
     restic_for "$name" forget --prune --tag "source=$name" \
       --keep-daily "$retention_daily" --keep-weekly "$retention_weekly" --keep-monthly "$retention_monthly" >/dev/null; then
     size=$(jq -r '.total_bytes_processed // 0' <<< "$snapshot_summary")
