@@ -84,7 +84,8 @@ The monitoring backup stops Grafana for the few seconds needed to copy its SQLit
 
 ### Safety
 
-- The Backstage dump is written to a private temporary folder and accepted only when it ends with the PostgreSQL completion line, so a truncated dump is never stored.
+- The Backstage dump is written to a private temporary folder and accepted only when its final ten lines contain the PostgreSQL completion line, so a truncated dump is never stored. PostgreSQL 17 appends restrict lines after the completion line, which the ten-line window allows for.
+- A failed source prints `backup_failed=<source> stage=<stage>` and records `bharath_backup_last_status 0`, so the failing stage is visible in the pipeline output.
 - The restic download is checked against a pinned SHA-256 value before installation.
 - Passwords and keys are never placed in environment files, units, or logs.
 
