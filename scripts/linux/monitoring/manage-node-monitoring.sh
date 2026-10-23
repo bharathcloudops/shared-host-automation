@@ -180,7 +180,8 @@ set -euo pipefail
 configuration=/etc/bharathcloudops/node-monitoring.json
 output_directory=/var/lib/node-exporter/textfile
 temporary_output=$(mktemp "$output_directory/storage.prom.XXXXXX")
-trap 'rm -f "$temporary_output"' EXIT
+reboot_output=$(mktemp "$output_directory/reboot.prom.XXXXXX")
+trap 'rm -f "$temporary_output" "$reboot_output"' EXIT
 host_name=$(jq -r '.host' "$configuration")
 
 escape_label() {
@@ -202,6 +203,21 @@ done < <(jq -r '.storage_paths[]' "$configuration") > "$temporary_output"
 
 chmod 0644 "$temporary_output"
 mv "$temporary_output" "$output_directory/storage.prom"
+
+reboot_required=0
+reboot_age=0
+if [[ -f /var/run/reboot-required ]]; then
+  reboot_required=1
+  reboot_age=$(( $(date +%s) - $(stat -c %Y /var/run/reboot-required) ))
+fi
+{
+  printf '# TYPE bharath_reboot_required gauge\n'
+  printf 'bharath_reboot_required{host="%s"} %s\n' "$host_name" "$reboot_required"
+  printf '# TYPE bharath_reboot_required_age_seconds gauge\n'
+  printf 'bharath_reboot_required_age_seconds{host="%s"} %s\n' "$host_name" "$reboot_age"
+} > "$reboot_output"
+chmod 0644 "$reboot_output"
+mv "$reboot_output" "$output_directory/reboot.prom"
 trap - EXIT
 COLLECTOR
 

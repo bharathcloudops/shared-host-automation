@@ -130,6 +130,10 @@ bash scripts/linux/monitoring/bootstrap-node-monitoring.sh \
 	'["/etc/cloudflared","/var/log"]'
 ```
 
+### Reboot Required Signal
+
+The storage collector also writes `/var/lib/node-exporter/textfile/reboot.prom` with `bharath_reboot_required` (1 when `/var/run/reboot-required` exists) and `bharath_reboot_required_age_seconds` (how long the flag has been set). Unattended upgrades install kernel and libc updates but never reboot, so the monitoring stack alerts when a reboot has been pending for three days.
+
 <!--
 ==============================================================================
 CLOUDFLARE TUNNEL CONNECTOR
