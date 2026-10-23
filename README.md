@@ -27,6 +27,7 @@ AVAILABLE SCRIPTS
 | `scripts/linux/monitoring/manage-node-monitoring.sh` | Deploy, verify, inspect, or report private host and storage telemetry |
 | `scripts/linux/backup/bootstrap-backups.sh` | Download an immutable release within the OCI Run Command payload limit |
 | `scripts/linux/backup/manage-backups.sh` | Deploy, run, verify, check, restore-test, or report encrypted restic backups |
+| `scripts/linux/maintenance/verify-reboot.sh` | Prove a host rebooted recently, runs its newest installed kernel, has no pending reboot, and has its required services active |
 | `scripts/linux/oci/bootstrap-oracle-cloud-agent.sh` | Install and validate required Oracle Cloud Agent plugins |
 
 <!--
@@ -133,6 +134,10 @@ bash scripts/linux/monitoring/bootstrap-node-monitoring.sh \
 ### Reboot Required Signal
 
 The storage collector also writes `/var/lib/node-exporter/textfile/reboot.prom` with `bharath_reboot_required` (1 when `/var/run/reboot-required` exists) and `bharath_reboot_required_age_seconds` (how long the flag has been set). Unattended upgrades install kernel and libc updates but never reboot, so the monitoring stack alerts when a reboot has been pending for three days.
+
+### Post-Reboot Verification
+
+`scripts/linux/maintenance/verify-reboot.sh <host>` runs through OCI Run Command after a controlled reboot. It requires uptime under 30 minutes, the newest installed kernel, no pending `/var/run/reboot-required`, a running or degraded system state, and the host's services active: `docker` on `platform`, `docker` and `k3s` on `k3s`, and `cloudflared` on `web-01`. A passing run prints `reboot_verify=ready`.
 
 <!--
 ==============================================================================
