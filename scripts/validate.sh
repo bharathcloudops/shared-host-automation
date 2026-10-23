@@ -60,6 +60,7 @@ if ! grep -Fq -- '--collector.systemd' "$node_manager_script" || \
   ! grep -Fq 'systemctl start --no-block node-storage-metrics.service' "$node_manager_script" || \
   ! grep -Fq 'iptables -A NODE_EXPORTER_METRICS' "$node_manager_script" || \
   ! grep -Fq 'bharath_managed_path_bytes' "$node_manager_script" || \
+  ! grep -Fq 'bharath_reboot_required_age_seconds' "$node_manager_script" || \
   ! grep -Fq 'node_monitoring_report=ready' "$node_manager_script"; then
   printf 'Node monitoring must provide private host, storage, service, and report coverage.\n' >&2
   exit 1
