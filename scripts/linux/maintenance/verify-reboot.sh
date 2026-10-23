@@ -41,5 +41,34 @@ for service in "${required_services[@]}"; do
   systemctl is-active --quiet "$service" || fail "Required service $service is not active."
 done
 
+#==============================================================================
+# KUBERNETES WORKLOAD RECOVERY
+#==============================================================================
+
+unavailable_workloads() {
+  sudo -n k3s kubectl get deployments,statefulsets --all-namespaces --output json |
+    jq -r '[.items[] | select((.status.readyReplicas // 0) < (.spec.replicas // 1)) | "\(.kind | ascii_downcase)/\(.metadata.name) \(.metadata.namespace)"] | join(";")'
+}
+
+if [[ "$host_name" == "k3s" ]]; then
+  restarted=false
+  pending=""
+  for (( attempt = 1; attempt <= 54; attempt++ )); do
+    pending=$(unavailable_workloads 2>/dev/null) || pending="api-unavailable"
+    [[ -z "$pending" ]] && break
+    if [[ "$restarted" == false && "$pending" != "api-unavailable" ]] && (( attempt >= 18 )); then
+      IFS=';' read -r -a workloads <<< "$pending"
+      for workload in "${workloads[@]}"; do
+        read -r target namespace <<< "$workload"
+        sudo -n k3s kubectl rollout restart "$target" --namespace "$namespace" >/dev/null || true
+      done
+      restarted=true
+      printf 'reboot_workloads_restarted=%s\n' "$pending"
+    fi
+    sleep 10
+  done
+  [[ -z "$pending" ]] || fail "Workloads still unavailable after recovery: $pending"
+fi
+
 printf 'reboot_kernel=%s\n' "$(uname -r)"
 printf 'reboot_verify=ready\n'
