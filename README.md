@@ -137,7 +137,7 @@ The storage collector also writes `/var/lib/node-exporter/textfile/reboot.prom` 
 
 ### Post-Reboot Verification
 
-`scripts/linux/maintenance/verify-reboot.sh <host>` runs through OCI Run Command after a controlled reboot. It requires uptime under 30 minutes, the newest installed kernel, no pending `/var/run/reboot-required`, a running or degraded system state, and the host's services active: `docker` on `platform`, `docker` and `k3s` on `k3s`, and `cloudflared` on `web-01`. A passing run prints `reboot_verify=ready`.
+`scripts/linux/maintenance/verify-reboot.sh <host>` runs through OCI Run Command after a controlled reboot. It requires uptime under 30 minutes, the newest installed kernel, no pending `/var/run/reboot-required`, a running or degraded system state, and the host's services active: `docker` on `platform`, `docker` and `k3s` on `k3s`, and `cloudflared` on `web-01`. On `k3s` it also waits up to nine minutes for every Deployment and StatefulSet to be ready, restarts any workload that is still unavailable after three minutes (once), and fails if any remains unavailable. A reboot once left the WordPress pod completed and unrecovered, which this step now repairs and reports as `reboot_workloads_restarted=`. A passing run prints `reboot_verify=ready`.
 
 <!--
 ==============================================================================

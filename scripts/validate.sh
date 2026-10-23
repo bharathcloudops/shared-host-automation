@@ -121,7 +121,8 @@ fi
 if bash "$reboot_verify_script" unknown >/dev/null 2>&1 || \
   ! grep -Fq 'reboot_verify=ready' "$reboot_verify_script" || \
   ! grep -Fq '/var/run/reboot-required' "$reboot_verify_script" || \
-  ! grep -Fq 'uptime_seconds < 1800' "$reboot_verify_script"; then
+  ! grep -Fq 'uptime_seconds < 1800' "$reboot_verify_script" || \
+  ! grep -Fq 'reboot_workloads_restarted' "$reboot_verify_script"; then
   printf 'Post-reboot verification must reject unknown hosts and check uptime, kernel, and pending reboot state.\n' >&2
   exit 1
 fi
